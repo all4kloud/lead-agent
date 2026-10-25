@@ -1,0 +1,85 @@
+# CI/CD: pruebas en cada push/PR; build + deploy a Cloud Run en cada push a main.
+# Reutiliza el proyecto de GCP y el Workload Identity de estimates-saas (ver README → Despliegue).
+# Variables (Settings → Secrets and variables → Actions → Variables):
+#   GCP_PROJECT_ID, GCP_REGION, WIF_PROVIDER, DEPLOY_SA, RUNTIME_SA
+#   PUBLIC_URL, ALLOWED_ORIGINS, SUPABASE_URL, ZOHO_ACCOUNTS_URL, ZOHO_API_URL,
+#   RESEND_FROM_EMAIL, NOTIFY_EMAIL, BOOKING_URL (opcional), ANTHROPIC_MODEL (opcional)
+name: Deploy lead-agent
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    needs: test
+    # no despliega hasta que existan las Variables de GCP
+    if: github.event_name != 'pull_request' && vars.GCP_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    env:
+      SERVICE: lead-agent
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/estimates/lead-agent:${{ github.sha }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+      ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      ZOHO_ACCOUNTS_URL: ${{ vars.ZOHO_ACCOUNTS_URL }}
+      ZOHO_API_URL: ${{ vars.ZOHO_API_URL }}
+      RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+      NOTIFY_EMAIL: ${{ vars.NOTIFY_EMAIL }}
+      BOOKING_URL: ${{ vars.BOOKING_URL }}
+      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build & push image
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy
+        run: |
+          ENV_VARS="^|^PUBLIC_URL=$PUBLIC_URL|ALLOWED_ORIGINS=$ALLOWED_ORIGINS|SUPABASE_URL=$SUPABASE_URL|ZOHO_ACCOUNTS_URL=${ZOHO_ACCOUNTS_URL:-https://accounts.zoho.com}|ZOHO_API_URL=${ZOHO_API_URL:-https://www.zohoapis.com}|RESEND_FROM_EMAIL=$RESEND_FROM_EMAIL|NOTIFY_EMAIL=$NOTIFY_EMAIL|BOOKING_URL=$BOOKING_URL|ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-haiku-5-5}"
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --service-account "${{ vars.RUNTIME_SA }}" \
+            --allow-unauthenticated \
+            --port 8080 --cpu 1 --memory 512Mi \
+            --min-instances 0 --max-instances 3 --concurrency 40 --timeout 60 \
+            --set-env-vars "$ENV_VARS" \
+            --set-secrets "ANTHROPIC_API_KEY=lead-agent-anthropic-key:latest,SUPABASE_SERVICE_ROLE_KEY=lead-agent-supabase-service-role-key:latest,ZOHO_CLIENT_ID=lead-agent-zoho-client-id:latest,ZOHO_CLIENT_SECRET=lead-agent-zoho-client-secret:latest,ZOHO_REFRESH_TOKEN=lead-agent-zoho-refresh-token:latest,RESEND_API_KEY=resend-api-key:latest,TWILIO_AUTH_TOKEN=lead-agent-twilio-auth-token:latest" \
+            --quiet
+          echo "URL: $(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format='value(status.url)')"
