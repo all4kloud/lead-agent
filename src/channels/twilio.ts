@@ -57,7 +57,7 @@ export function twilioRoutes(deps: EngineDeps) {
     if (!conv) {
       const lang = guessLang(body);
       conv = (await startConversation(deps.store, channel, from, lang)).conv;
-      prefix = lang === 'en' ? 'all4kloud virtual assistant (AI). Reply STOP to opt out. ' : 'Asistente virtual de all4kloud (IA). Responde BAJA para no recibir mensajes. ';
+      prefix = lang === 'en' ? 'all4kloud virtual assistant (AI). Reply STOP to opt out. ' : 'Asistente virtual de all4kloud (IA). Responde STOP o BAJA para no recibir mensajes. ';
     }
     const reply = await handleMessage(conv, body || '(mensaje vacío)', deps);
     return c.body(twiml(prefix + reply.text), 200, { 'Content-Type': 'text/xml' });
