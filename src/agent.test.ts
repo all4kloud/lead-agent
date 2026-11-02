@@ -122,7 +122,7 @@ describe('Twilio', () => {
     expect(r.status).toBe(404);
   });
 
-  it('SMS: firma válida → respuesta TwiML con aviso de IA; STOP → sin respuesta', async () => {
+  it('SMS: firma válida → TwiML con aviso de IA; STOP y START → sin mensaje del agente', async () => {
     process.env.TWILIO_AUTH_TOKEN = 'tok';
     process.env.PUBLIC_URL = 'http://localhost:8080';
     try {
@@ -141,6 +141,12 @@ describe('Twilio', () => {
       expect(await r2.text()).not.toContain('<Message>');
       expect([...store.conversations.values()][0].opted_out).toBe(true);
       expect(store.consents.at(-1)).toMatchObject({ granted: false });
+      const r3 = await send('Hola otra vez');
+      expect(await r3.text()).not.toContain('<Message>');
+      const r4 = await send('START');
+      expect(await r4.text()).not.toContain('<Message>');
+      expect([...store.conversations.values()][0].opted_out).toBe(false);
+      expect(store.consents.at(-1)).toMatchObject({ granted: true });
     } finally {
       delete process.env.TWILIO_AUTH_TOKEN;
     }

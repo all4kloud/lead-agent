@@ -6,7 +6,7 @@ Atiende prospectos 24/7, explica los servicios de all4kloud, consigue sus datos 
 |---|---|---|
 | Chat en el sitio (Wix) | ✅ Listo | `widget.js` + ventana `/chat` |
 | Correo | ✅ Activo aparte | Tarea programada "Agente de ventas - correo" (Gmail + Zoho, deja borradores) |
-| SMS | ⏳ Código listo, apagado | Twilio → `POST /twilio/sms` (falta número + registro A2P 10DLC) |
+| SMS | ✅ Activo | Twilio (984) 384-4787 → Messaging Service → `POST /twilio/sms` (A2P 10DLC aprobado) |
 | WhatsApp | ⏳ Código listo, apagado | Twilio → `POST /twilio/whatsapp` (falta remitente de WhatsApp aprobado) |
 | Facebook / Instagram | 🔜 Fase 3 | Requiere app de Meta y App Review |
 

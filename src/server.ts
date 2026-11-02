@@ -9,6 +9,8 @@ import { twilioRoutes } from './channels/twilio.js';
 export function buildApp(deps: EngineDeps) {
   const app = new Hono();
   app.use('*', logger());
+  // Cloud Run reserva las rutas que terminan en "z" (/healthz da 404 en el dominio público)
+  app.get('/health', c => c.json({ ok: true }));
   app.get('/healthz', c => c.json({ ok: true }));
   app.route('/', webRoutes(deps));
   app.route('/twilio', twilioRoutes(deps));
@@ -28,7 +30,7 @@ export function llmFromEnv(): Llm {
   console.warn('[lead-agent] ANTHROPIC_API_KEY no configurada: el chat responde un mensaje fijo');
   return {
     async create() {
-      return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'El asistente aún no está configurado. Escríbenos a all4kloud@gmail.com.', citations: null }] } as never;
+      return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'El asistente aún no está configurado. Escríbenos a info@all4kloud.com.', citations: null }] } as never;
     },
   };
 }
