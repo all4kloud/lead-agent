@@ -50,8 +50,15 @@ export function twilioRoutes(deps: EngineDeps) {
       }
       return c.body(twiml(), 200, { 'Content-Type': 'text/xml' });
     }
-    if (conv?.opted_out && !isStart(body)) return c.body(twiml(), 200, { 'Content-Type': 'text/xml' });
-    if (conv?.opted_out && isStart(body)) await deps.store.updateConversation(conv.id, { opted_out: false });
+    if (conv && isStart(body)) {
+      // Twilio ya manda su propia confirmación del alta: el agente no agrega otro mensaje.
+      if (conv.opted_out) {
+        await deps.store.updateConversation(conv.id, { opted_out: false });
+        await deps.store.recordConsent({ conversation_id: conv.id, channel, contact: from, granted: true, text: `Alta: "${body}"` });
+      }
+      return c.body(twiml(), 200, { 'Content-Type': 'text/xml' });
+    }
+    if (conv?.opted_out) return c.body(twiml(), 200, { 'Content-Type': 'text/xml' });
 
     let prefix = '';
     if (!conv) {
