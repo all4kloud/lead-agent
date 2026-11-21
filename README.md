@@ -89,3 +89,11 @@ Wix → **Settings → Custom Code → + Add Custom Code** (requiere plan Premiu
 2. Number → *Messaging* → **A message comes in**: Webhook `https://agent.all4kloud.net/twilio/sms` (POST).
 3. WhatsApp: crea el remitente en Twilio (*Messaging → Senders → WhatsApp senders*) con el mismo número; webhook `https://agent.all4kloud.net/twilio/whatsapp`.
 4. Guarda el Auth Token en el secreto `lead-agent-twilio-auth-token` y redespliega. Sin ese secreto, las rutas responden 404.
+
+## Llamadas (voz)
+
+Number → *Voice Configuration* → **A call comes in**: Webhook `https://agent.all4kloud.net/twilio/voice` (HTTP POST).
+
+- **Llamadas entrantes**: se desvían a `OWNER_MOBILE` (variable de GitHub, formato `+1XXXXXXXXXX`). Si no contestas en 20 s, saludo en español e inglés y buzón; cada mensaje de voz llega por correo a `NOTIFY_EMAIL` con el enlace a la grabación en la consola de Twilio.
+- **Llamar desde el número del negocio**: desde tu celular llama al número de all4kloud, marca tu PIN + `#` y luego el número de 10 dígitos + `#`. La otra persona ve el número del negocio. Solo EE. UU. y Canadá (sin 900/976 ni códigos del Caribe).
+- El PIN vive en el secreto `lead-agent-voice-pin` (Secret Manager). Sin `OWNER_MOBILE`, todo va al buzón; sin PIN, no hay llamadas salientes.

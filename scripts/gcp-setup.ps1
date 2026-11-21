@@ -43,6 +43,7 @@ $Secrets = [ordered]@{
   'lead-agent-zoho-client-secret'        = 'Zoho Self Client: Client Secret'
   'lead-agent-zoho-refresh-token'        = 'Zoho: refresh token (ver README)'
   'lead-agent-twilio-auth-token'         = 'Twilio Auth Token (déjalo vacío hasta tener el número)'
+  'lead-agent-voice-pin'                 = 'PIN para llamar desde el número del negocio (4 a 8 dígitos)'
 }
 foreach ($name in $Secrets.Keys) {
   if (Exists secrets describe $name) {

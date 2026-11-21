@@ -3,7 +3,7 @@
 # Variables (Settings → Secrets and variables → Actions → Variables):
 #   GCP_PROJECT_ID, GCP_REGION, WIF_PROVIDER, DEPLOY_SA, RUNTIME_SA
 #   PUBLIC_URL, ALLOWED_ORIGINS, SUPABASE_URL, ZOHO_ACCOUNTS_URL, ZOHO_API_URL,
-#   RESEND_FROM_EMAIL, NOTIFY_EMAIL, BOOKING_URL (opcional), ANTHROPIC_MODEL (opcional)
+#   RESEND_FROM_EMAIL, NOTIFY_EMAIL, BOOKING_URL (opcional), ANTHROPIC_MODEL (opcional), OWNER_MOBILE (voz)
 name: Deploy lead-agent
 
 on:
@@ -52,6 +52,7 @@ jobs:
       NOTIFY_EMAIL: ${{ vars.NOTIFY_EMAIL }}
       BOOKING_URL: ${{ vars.BOOKING_URL }}
       ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+      OWNER_MOBILE: ${{ vars.OWNER_MOBILE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,7 +71,7 @@ jobs:
 
       - name: Deploy
         run: |
-          ENV_VARS="^|^PUBLIC_URL=$PUBLIC_URL|ALLOWED_ORIGINS=$ALLOWED_ORIGINS|SUPABASE_URL=$SUPABASE_URL|ZOHO_ACCOUNTS_URL=${ZOHO_ACCOUNTS_URL:-https://accounts.zoho.com}|ZOHO_API_URL=${ZOHO_API_URL:-https://www.zohoapis.com}|RESEND_FROM_EMAIL=$RESEND_FROM_EMAIL|NOTIFY_EMAIL=$NOTIFY_EMAIL|BOOKING_URL=$BOOKING_URL|ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-haiku-5-5}"
+          ENV_VARS="^|^PUBLIC_URL=$PUBLIC_URL|ALLOWED_ORIGINS=$ALLOWED_ORIGINS|SUPABASE_URL=$SUPABASE_URL|ZOHO_ACCOUNTS_URL=${ZOHO_ACCOUNTS_URL:-https://accounts.zoho.com}|ZOHO_API_URL=${ZOHO_API_URL:-https://www.zohoapis.com}|RESEND_FROM_EMAIL=$RESEND_FROM_EMAIL|NOTIFY_EMAIL=$NOTIFY_EMAIL|BOOKING_URL=$BOOKING_URL|ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-haiku-5-5}|OWNER_MOBILE=$OWNER_MOBILE"
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT" \
             --region "$REGION" \
@@ -80,6 +81,6 @@ jobs:
             --port 8080 --cpu 1 --memory 512Mi \
             --min-instances 0 --max-instances 3 --concurrency 40 --timeout 60 \
             --set-env-vars "$ENV_VARS" \
-            --set-secrets "ANTHROPIC_API_KEY=lead-agent-anthropic-key:latest,SUPABASE_SERVICE_ROLE_KEY=lead-agent-supabase-service-role-key:latest,ZOHO_CLIENT_ID=lead-agent-zoho-client-id:latest,ZOHO_CLIENT_SECRET=lead-agent-zoho-client-secret:latest,ZOHO_REFRESH_TOKEN=lead-agent-zoho-refresh-token:latest,RESEND_API_KEY=resend-api-key:latest,TWILIO_AUTH_TOKEN=lead-agent-twilio-auth-token:latest" \
+            --set-secrets "ANTHROPIC_API_KEY=lead-agent-anthropic-key:latest,SUPABASE_SERVICE_ROLE_KEY=lead-agent-supabase-service-role-key:latest,ZOHO_CLIENT_ID=lead-agent-zoho-client-id:latest,ZOHO_CLIENT_SECRET=lead-agent-zoho-client-secret:latest,ZOHO_REFRESH_TOKEN=lead-agent-zoho-refresh-token:latest,RESEND_API_KEY=resend-api-key:latest,TWILIO_AUTH_TOKEN=lead-agent-twilio-auth-token:latest,VOICE_PIN=lead-agent-voice-pin:latest" \
             --quiet
           echo "URL: $(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format='value(status.url)')"
