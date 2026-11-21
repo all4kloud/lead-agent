@@ -184,3 +184,55 @@ describe('chat web', () => {
     expect(rateLimited('1.2.3.4', 12, now + 61_000)).toBe(false);
   });
 });
+
+describe('voz', () => {
+  const OWNER = '+14705550100';
+  const call = async (app: ReturnType<typeof buildApp>, path: string, params: Record<string, string>) => {
+    const url = `http://localhost:8080/twilio/voice${path}`;
+    const sig = twilioSignature('tok', url, params);
+    const r = await app.request(`/twilio/voice${path}`, { method: 'POST', body: new URLSearchParams(params), headers: { 'x-twilio-signature': sig } });
+    return { status: r.status, xml: await r.text() };
+  };
+  const withEnv = async (vars: Record<string, string>, fn: () => Promise<void>) => {
+    Object.assign(process.env, { TWILIO_AUTH_TOKEN: 'tok', PUBLIC_URL: 'http://localhost:8080' }, vars);
+    try { await fn(); } finally { for (const k of ['TWILIO_AUTH_TOKEN', 'OWNER_MOBILE', 'VOICE_PIN', ...Object.keys(vars)]) delete process.env[k]; }
+  };
+
+  it('normaliza solo números de EE. UU./Canadá', async () => {
+    const { normalizeDialed } = await import('./channels/voice.js');
+    expect(normalizeDialed('9195550123')).toBe('+19195550123');
+    expect(normalizeDialed('19195550123')).toBe('+19195550123');
+    expect(normalizeDialed('9005550123')).toBeNull();   // pago
+    expect(normalizeDialed('8765550123')).toBeNull();   // Jamaica
+    expect(normalizeDialed('011447700900123')).toBeNull();
+    expect(normalizeDialed('1235550123')).toBeNull();
+  });
+
+  it('desvía llamadas al celular y al buzón si no contesta, con aviso', () => withEnv({ OWNER_MOBILE: OWNER, VOICE_PIN: '4321' }, async () => {
+    const app = buildApp({ store: new MemoryStore(), llm: fakeLlm([]).llm });
+    const r1 = await call(app, '', { From: '+19195550123', To: '+19843844787', CallSid: 'CA1' });
+    expect(r1.xml).toContain(`<Dial timeout="20" action="http://localhost:8080/twilio/voice/after-dial">${OWNER}</Dial>`);
+    expect((await call(app, '/after-dial', { From: '+19195550123', DialCallStatus: 'completed' })).xml).toContain('<Hangup/>');
+    const r3 = await call(app, '/after-dial', { From: '+19195550123', DialCallStatus: 'no-answer' });
+    expect(r3.xml).toContain('<Record');
+    expect((await call(app, '/recorded', { From: '+19195550123', CallSid: 'CA1', RecordingDuration: '12' })).xml).toContain('Gracias');
+  }));
+
+  it('el dueño con PIN marca hacia afuera con el número del negocio; sin PIN correcto, no', () => withEnv({ OWNER_MOBILE: OWNER, VOICE_PIN: '4321' }, async () => {
+    const app = buildApp({ store: new MemoryStore(), llm: fakeLlm([]).llm });
+    expect((await call(app, '', { From: OWNER, To: '+19843844787' })).xml).toContain('<Gather');
+    expect((await call(app, '/pin', { From: OWNER, To: '+19843844787', Digits: '0000' })).xml).toContain('PIN incorrecto');
+    expect((await call(app, '/pin', { From: '+19195550123', To: '+19843844787', Digits: '4321' })).xml).toContain('PIN incorrecto');
+    expect((await call(app, '/pin', { From: OWNER, To: '+19843844787', Digits: '4321' })).xml).toContain('/twilio/voice/dial');
+    const d = await call(app, '/dial', { From: OWNER, To: '+19843844787', Digits: '9195550123' });
+    expect(d.xml).toContain('<Dial callerId="+19843844787" timeout="30">+19195550123</Dial>');
+    expect((await call(app, '/dial', { From: OWNER, To: '+19843844787', Digits: '9005550123' })).xml).not.toContain('<Dial');
+    expect((await call(app, '/dial', { From: '+19195550123', To: '+19843844787', Digits: '9195550123' })).xml).not.toContain('<Dial');
+  }));
+
+  it('rechaza firmas inválidas', () => withEnv({ OWNER_MOBILE: OWNER, VOICE_PIN: '4321' }, async () => {
+    const app = buildApp({ store: new MemoryStore(), llm: fakeLlm([]).llm });
+    const r = await app.request('/twilio/voice', { method: 'POST', body: new URLSearchParams({ From: OWNER }), headers: { 'x-twilio-signature': 'x' } });
+    expect(r.status).toBe(403);
+  }));
+});

@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { guessLang, isStart, isStop } from '../guardrails.js';
 import { handleMessage, startConversation, type EngineDeps } from '../engine.js';
 import type { Channel } from '../store.js';
+import { voiceRoutes } from './voice.js';
 
 /**
  * Firma de Twilio: HMAC-SHA1 (con el Auth Token) de la URL completa + parámetros POST
@@ -71,5 +72,6 @@ export function twilioRoutes(deps: EngineDeps) {
   };
   app.post('/sms', handler('sms'));
   app.post('/whatsapp', handler('whatsapp'));
+  app.route('/voice', voiceRoutes());
   return app;
 }

@@ -32,7 +32,13 @@ export const config = {
   bookingUrl: env('BOOKING_URL'),   // página de citas (Google Calendar u otra). Opcional.
 
   twilio: {
-    authToken: () => env('TWILIO_AUTH_TOKEN'),   // sin esto, los webhooks de SMS/WhatsApp quedan apagados
+    authToken: () => env('TWILIO_AUTH_TOKEN'),   // sin esto, los webhooks de SMS/WhatsApp/voz quedan apagados
+  },
+
+  voice: {
+    ownerMobile: () => env('OWNER_MOBILE'),        // E.164, ej. +14705550100. Sin esto, las llamadas no se desvían
+    pin: () => env('VOICE_PIN'),                   // PIN para llamar desde el número del negocio. Sin esto, no hay llamadas salientes
+    ringSeconds: Number(env('VOICE_RING_SECONDS') || 20),
   },
 
   limits: {
